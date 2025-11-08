@@ -1,54 +1,3 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Elemental RPG</title>
-<style>
-  body {
-    margin: 0;
-    overflow: hidden;
-    background: #121212;
-    font-family: Arial, sans-serif;
-    color: white;
-  }
-  canvas {
-    background: #87ceeb;
-    display: block;
-  }
-  #element-selection {
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    text-align: center;
-  }
-  #element-selection button {
-    margin: 10px;
-    padding: 15px 25px;
-    font-size: 18px;
-    border: none;
-    border-radius: 5px;
-    cursor: pointer;
-  }
-  .fire { background-color: #ff4500; color: #fff; }
-  .water { background-color: #1e90ff; color: #fff; }
-  .earth { background-color: #8b4513; color: #fff; }
-  .air { background-color: #dcdcdc; color: #000; }
-</style>
-</head>
-<body>
-
-<div id="element-selection">
-  <h1>Choose Your Element</h1>
-  <button class="fire" onclick="chooseElement('Fire')">Fire</button>
-  <button class="water" onclick="chooseElement('Water')">Water</button>
-  <button class="earth" onclick="chooseElement('Earth')">Earth</button>
-  <button class="air" onclick="chooseElement('Air')">Air</button>
-</div>
-
-<canvas id="gameCanvas"></canvas>
-
 <script>
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
@@ -92,10 +41,11 @@ function createPlatforms() {
 createPlatforms();
 window.addEventListener('resize', createPlatforms);
 
-// Temp platforms, spikes, fireballs
+// Temp platforms, spikes, fireballs, waves
 let tempPlatforms = [];
 let groundSpikes = [];
 let fireballs = [];
+let waterWaves = [];
 
 // Dummy
 let dummy = {
@@ -128,7 +78,15 @@ function useAbility() {
       fireballs.push({x: player.x + player.width, y: player.y + player.height/2 - 5, width: 15, height: 10, speed: 10});
       break;
     case 'Water':
-      if (player.onGround) player.dy = -20; // jump boost
+      // Spawn a wave in front of the player
+      waterWaves.push({
+        x: player.x + player.width,
+        y: player.y + player.height - 30,
+        width: 60,
+        height: 30,
+        speed: 6,
+        damage: 5
+      });
       break;
     case 'Earth':
       tempPlatforms.push({x: player.x, y: player.y + player.height + 5, width: 100, height: 20, timer: 200});
@@ -225,6 +183,35 @@ function update() {
     if(f.x > canvas.width) fireballs.splice(i,1);
   });
 
+  // Update water waves
+  waterWaves.forEach((w,i)=>{
+    w.x += w.speed;
+
+    // Pushback player if hit
+    if (
+      player.x < w.x + w.width &&
+      player.x + player.width > w.x &&
+      player.y < w.y + w.height &&
+      player.y + player.height > w.y
+    ) {
+      player.x -= 10; // push back
+      player.dy = -5; // slight knockup
+    }
+
+    // Damage dummy
+    if(dummy.alive &&
+      w.x < dummy.x + dummy.width &&
+      w.x + w.width > dummy.x &&
+      w.y < dummy.y + dummy.height &&
+      w.y + w.height > dummy.y) {
+        dummy.health -= w.damage;
+        waterWaves.splice(i,1);
+        if(dummy.health <= 0) dummy.alive=false;
+    }
+
+    if(w.x > canvas.width) waterWaves.splice(i,1);
+  });
+
   draw();
   requestAnimationFrame(update);
 }
@@ -251,6 +238,10 @@ function draw(){
   ctx.fillStyle = '#ff5500';
   fireballs.forEach(f=>ctx.fillRect(f.x,f.y,f.width,f.height));
 
+  // Water waves
+  ctx.fillStyle = '#1e90ff';
+  waterWaves.forEach(w=>ctx.fillRect(w.x,w.y,w.width,w.height));
+
   // Dummy
   if(dummy.alive){
     ctx.fillStyle=dummy.color;
@@ -260,5 +251,3 @@ function draw(){
   }
 }
 </script>
-</body>
-</html>
