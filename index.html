@@ -3,11 +3,11 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Elemental Earth RPG</title>
+<title>Elemental RPG</title>
 <style>
   body {
     margin: 0;
-    overflow: hidden; /* prevent scrolling */
+    overflow: hidden;
     background: #121212;
     font-family: Arial, sans-serif;
     color: white;
@@ -18,7 +18,7 @@
     height: 100vh;
   }
   canvas {
-    background: #87ceeb; /* sky */
+    background: #87ceeb;
     display: block;
   }
   #element-selection {
@@ -58,7 +58,6 @@
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
 
-// Make canvas full screen
 function resizeCanvas() {
   canvas.width = window.innerWidth;
   canvas.height = window.innerHeight;
@@ -73,7 +72,6 @@ document.addEventListener('keyup', e => keys[e.code] = false);
 const gravity = 0.5;
 const friction = 0.8;
 
-// Player object
 const player = {
   x: 50,
   y: 300,
@@ -84,17 +82,17 @@ const player = {
   dy: 0,
   speed: 5,
   jumpForce: -12,
-  onGround: false
+  onGround: false,
+  element: null
 };
 
-// Platforms
-const platforms = [
-  {x: 0, y: 0, width: 0, height: 0} // placeholder, will adjust to screen
-];
+let fireballs = [];
+let tempPlatforms = [];
 
-// Update platforms based on screen size
+// Platforms
+let platforms = [];
 function createPlatforms() {
-  platforms.length = 0;
+  platforms = [];
   platforms.push({x: 0, y: canvas.height - 50, width: canvas.width, height: 50}); // ground
   platforms.push({x: 200, y: canvas.height - 150, width: 200, height: 20});
   platforms.push({x: 500, y: canvas.height - 250, width: 150, height: 20});
@@ -107,13 +105,37 @@ window.addEventListener('resize', createPlatforms);
 function chooseElement(element) {
   const colors = { Fire: '#ff4500', Water: '#1e90ff', Earth: '#8b4513', Air: '#dcdcdc' };
   player.color = colors[element] || 'red';
+  player.element = element;
   document.getElementById('element-selection').style.display = 'none';
   player.x = 50;
   player.y = canvas.height - player.height - 50;
-  update(); // start game loop
+  update();
 }
 
-// Game loop
+// Ability function
+function useAbility() {
+  switch(player.element) {
+    case 'Fire':
+      // shoot a fireball
+      fireballs.push({x: player.x + player.width, y: player.y + player.height/2 - 5, width: 15, height: 10, speed: 10});
+      break;
+    case 'Water':
+      if (player.onGround) player.dy = -20; // jump boost
+      break;
+    case 'Earth':
+      // create a temporary platform
+      tempPlatforms.push({x: player.x, y: player.y + player.height + 5, width: 100, height: 20, timer: 200});
+      break;
+    case 'Air':
+      // dash forward
+      player.x += 100;
+      break;
+  }
+}
+document.addEventListener('keydown', e => {
+  if (e.code === 'KeyE') useAbility();
+});
+
 function update() {
   // Horizontal movement
   if (keys['ArrowLeft'] || keys['KeyA']) player.dx = -player.speed;
@@ -135,7 +157,7 @@ function update() {
 
   // Platform collision
   player.onGround = false;
-  platforms.forEach(p => {
+  platforms.concat(tempPlatforms).forEach(p => {
     if (
       player.x < p.x + p.width &&
       player.x + player.width > p.x &&
@@ -162,6 +184,18 @@ function update() {
     player.onGround = true;
   }
 
+  // Update fireballs
+  fireballs.forEach((f, i) => {
+    f.x += f.speed;
+    if (f.x > canvas.width) fireballs.splice(i, 1);
+  });
+
+  // Update temporary platforms
+  tempPlatforms.forEach((p, i) => {
+    p.timer--;
+    if (p.timer <= 0) tempPlatforms.splice(i, 1);
+  });
+
   draw();
   requestAnimationFrame(update);
 }
@@ -174,9 +208,17 @@ function draw() {
   ctx.fillStyle = 'green';
   platforms.forEach(p => ctx.fillRect(p.x, p.y, p.width, p.height));
 
+  // Draw temp platforms
+  ctx.fillStyle = '#654321';
+  tempPlatforms.forEach(p => ctx.fillRect(p.x, p.y, p.width, p.height));
+
   // Draw player
   ctx.fillStyle = player.color;
   ctx.fillRect(player.x, player.y, player.width, player.height);
+
+  // Draw fireballs
+  ctx.fillStyle = '#ff5500';
+  fireballs.forEach(f => ctx.fillRect(f.x, f.y, f.width, f.height));
 }
 </script>
 </body>
