@@ -98,7 +98,7 @@ let groundSpikes = [];
 let fireballs = [];
 let waterWaves = [];
 
-// Dummy
+// Dummy enemy
 let dummy = {
   x: 700,
   y: canvas.height - 100,
@@ -139,7 +139,15 @@ function useAbility() {
       });
       break;
     case 'Earth':
-      tempPlatforms.push({x: player.x, y: player.y + player.height + 5, width: 100, height: 20, timer: 200});
+      // Earth spike now emerges in front of the player
+      groundSpikes.push({
+        x: player.x + player.width,
+        y: canvas.height - 50 - 20, // start at ground level
+        width: 20,
+        height: 20,
+        speed: 8, // moves forward
+        timer: 200
+      });
       break;
     case 'Air':
       player.x += 100; // dash forward
@@ -147,18 +155,11 @@ function useAbility() {
   }
 }
 
-// Earth spike ability with corrupted energy visual
-function useEarthSpike() {
-  if (player.element !== 'Earth') return;
-  let spikeY = player.onGround ? player.y + player.height : player.y + player.height + 5;
-  groundSpikes.push({x: player.x + player.width/2 - 10, y: spikeY, width: 20, height: 20, timer: 200, falling: !player.onGround});
-}
-
 document.addEventListener('keydown', e => {
   if (e.code === 'KeyE') useAbility();
-  if (e.code === 'KeyQ') useEarthSpike();
 });
 
+// Movement & collision
 function update() {
   // Movement
   if (keys['ArrowLeft'] || keys['KeyA']) player.dx = -player.speed;
@@ -206,24 +207,21 @@ function update() {
   // Update temp platforms
   tempPlatforms.forEach((p,i) => {p.timer--; if(p.timer<=0) tempPlatforms.splice(i,1);});
 
-  // Update spikes
+  // Update spikes (move forward)
   groundSpikes.forEach((s,i)=>{
-    if(s.falling){
-      s.y += 10;
-      const ground = platforms[0];
-      if(s.y + s.height >= ground.y) { s.y = ground.y - s.height; s.falling=false; }
-    }
+    s.x += s.speed; // move forward
     s.timer--;
-    if(s.timer<=0) groundSpikes.splice(i,1);
+    if(s.timer <=0 || s.x > canvas.width) groundSpikes.splice(i,1);
 
+    // Spike hits dummy
     if(dummy.alive &&
       s.x < dummy.x + dummy.width &&
       s.x + s.width > dummy.x &&
       s.y < dummy.y + dummy.height &&
       s.y + s.height > dummy.y) {
-        dummy.health -= 10;
+        dummy.health -= 15;
         groundSpikes.splice(i,1);
-        if(dummy.health <= 0) dummy.alive=false;
+        if(dummy.health <=0) dummy.alive=false;
     }
   });
 
@@ -231,6 +229,14 @@ function update() {
   fireballs.forEach((f,i)=>{
     f.x += f.speed;
     if(f.x > canvas.width) fireballs.splice(i,1);
+    if(dummy.alive && f.x < dummy.x + dummy.width &&
+       f.x + f.width > dummy.x &&
+       f.y < dummy.y + dummy.height &&
+       f.y + f.height > dummy.y) {
+         dummy.health -= 10;
+         fireballs.splice(i,1);
+         if(dummy.health <=0) dummy.alive=false;
+    }
   });
 
   // Water waves
@@ -253,6 +259,7 @@ function update() {
   requestAnimationFrame(update);
 }
 
+// Drawing
 function draw(){
   ctx.clearRect(0,0,canvas.width,canvas.height);
 
@@ -267,7 +274,7 @@ function draw(){
   ctx.fillStyle = player.color;
   ctx.fillRect(player.x,player.y,player.width,player.height);
 
-  // Earth spikes (corrupted energy)
+  // Earth spikes (moving forward)
   groundSpikes.forEach(s=>{
     let pulse = Math.sin(Date.now() * 0.02 + s.x) * 5;
     let spikeHeight = s.height + pulse;
