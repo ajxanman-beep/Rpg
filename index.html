@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Earth RPG Practice</title>
+<title>Elemental RPG</title>
 <style>
   body {
     margin: 0;
@@ -31,14 +31,20 @@
     border-radius: 5px;
     cursor: pointer;
   }
+  .fire { background-color: #ff4500; color: #fff; }
+  .water { background-color: #1e90ff; color: #fff; }
   .earth { background-color: #8b4513; color: #fff; }
+  .air { background-color: #dcdcdc; color: #000; }
 </style>
 </head>
 <body>
 
 <div id="element-selection">
-  <h1>Choose Earth Element</h1>
+  <h1>Choose Your Element</h1>
+  <button class="fire" onclick="chooseElement('Fire')">Fire</button>
+  <button class="water" onclick="chooseElement('Water')">Water</button>
   <button class="earth" onclick="chooseElement('Earth')">Earth</button>
+  <button class="air" onclick="chooseElement('Air')">Air</button>
 </div>
 
 <canvas id="gameCanvas"></canvas>
@@ -61,12 +67,13 @@ document.addEventListener('keyup', e => keys[e.code] = false);
 const gravity = 0.5;
 const friction = 0.8;
 
+// Player
 const player = {
   x: 50,
   y: 300,
   width: 50,
   height: 50,
-  color: '#8b4513',
+  color: 'red',
   dx: 0,
   dy: 0,
   speed: 5,
@@ -85,61 +92,76 @@ function createPlatforms() {
 createPlatforms();
 window.addEventListener('resize', createPlatforms);
 
-// Temporary platforms and spikes
+// Temp platforms, spikes, fireballs
 let tempPlatforms = [];
 let groundSpikes = [];
+let fireballs = [];
 
 // Dummy
-const dummy = {
+let dummy = {
   x: 700,
   y: canvas.height - 100,
   width: 50,
   height: 80,
   color: 'gray',
-  health: 100
+  health: 100,
+  alive: true
 };
 
 // Element choosing
 function chooseElement(element) {
   player.element = element;
+  const colors = { Fire:'#ff4500', Water:'#1e90ff', Earth:'#8b4513', Air:'#dcdcdc' };
+  player.color = colors[element] || 'red';
   document.getElementById('element-selection').style.display = 'none';
   player.x = 50;
   player.y = canvas.height - player.height - 50;
   update();
 }
 
-// Earth abilities
+// Abilities
 function useAbility() {
-  if (player.element !== 'Earth') return;
-  // Ability E: Temporary platform
-  tempPlatforms.push({x: player.x, y: player.y + player.height + 5, width: 100, height: 20, timer: 200});
+  if (!player.element) return;
+
+  switch(player.element) {
+    case 'Fire':
+      fireballs.push({x: player.x + player.width, y: player.y + player.height/2 - 5, width: 15, height: 10, speed: 10});
+      break;
+    case 'Water':
+      if (player.onGround) player.dy = -20; // jump boost
+      break;
+    case 'Earth':
+      tempPlatforms.push({x: player.x, y: player.y + player.height + 5, width: 100, height: 20, timer: 200});
+      break;
+    case 'Air':
+      player.x += 100; // dash forward
+      break;
+  }
 }
-function useSpikeAbility() {
+
+function useEarthSpike() {
   if (player.element !== 'Earth') return;
-  // Create ground spike
-  groundSpikes.push({x: player.x + player.width/2 - 10, y: player.y + player.height, width: 20, height: 20});
+  let spikeY = player.onGround ? player.y + player.height : player.y + player.height + 5;
+  groundSpikes.push({x: player.x + player.width/2 - 10, y: spikeY, width: 20, height: 20, timer: 200, falling: !player.onGround});
 }
+
 document.addEventListener('keydown', e => {
   if (e.code === 'KeyE') useAbility();
-  if (e.code === 'KeyQ') useSpikeAbility();
+  if (e.code === 'KeyQ') useEarthSpike();
 });
 
 function update() {
-  // Horizontal movement
+  // Movement
   if (keys['ArrowLeft'] || keys['KeyA']) player.dx = -player.speed;
   else if (keys['ArrowRight'] || keys['KeyD']) player.dx = player.speed;
   else player.dx *= friction;
 
-  // Jump
   if ((keys['ArrowUp'] || keys['KeyW'] || keys['Space']) && player.onGround) {
     player.dy = player.jumpForce;
     player.onGround = false;
   }
 
-  // Gravity
   player.dy += gravity;
-
-  // Move player
   player.x += player.dx;
   player.y += player.dy;
 
@@ -152,11 +174,11 @@ function update() {
       player.y < p.y + p.height &&
       player.y + player.height > p.y
     ) {
-      if (player.dy > 0) { // falling
+      if (player.dy > 0) {
         player.y = p.y - player.height;
         player.dy = 0;
         player.onGround = true;
-      } else if (player.dy < 0) { // jumping
+      } else if (player.dy < 0) {
         player.y = p.y + p.height;
         player.dy = 0;
       }
@@ -173,52 +195,69 @@ function update() {
   }
 
   // Update temp platforms
-  tempPlatforms.forEach((p, i) => {
-    p.timer--;
-    if (p.timer <= 0) tempPlatforms.splice(i, 1);
-  });
+  tempPlatforms.forEach((p,i) => {p.timer--; if(p.timer<=0) tempPlatforms.splice(i,1);});
 
-  // Check spike collisions with dummy
-  groundSpikes.forEach((s, i) => {
-    if (
+  // Update spikes
+  groundSpikes.forEach((s,i)=>{
+    if(s.falling){
+      s.y += 10;
+      const ground = platforms[0];
+      if(s.y + s.height >= ground.y) { s.y = ground.y - s.height; s.falling=false; }
+    }
+    s.timer--;
+    if(s.timer<=0) groundSpikes.splice(i,1);
+
+    // Collision with dummy
+    if(dummy.alive &&
       s.x < dummy.x + dummy.width &&
       s.x + s.width > dummy.x &&
       s.y < dummy.y + dummy.height &&
-      s.y + s.height > dummy.y
-    ) {
-      dummy.health -= 10;
-      groundSpikes.splice(i, 1);
+      s.y + s.height > dummy.y) {
+        dummy.health -= 10;
+        groundSpikes.splice(i,1);
+        if(dummy.health <= 0) dummy.alive=false;
     }
+  });
+
+  // Update fireballs
+  fireballs.forEach((f,i)=>{
+    f.x += f.speed;
+    if(f.x > canvas.width) fireballs.splice(i,1);
   });
 
   draw();
   requestAnimationFrame(update);
 }
 
-function draw() {
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
+function draw(){
+  ctx.clearRect(0,0,canvas.width,canvas.height);
 
-  // Draw platforms
+  // Platforms
   ctx.fillStyle = 'green';
-  platforms.forEach(p => ctx.fillRect(p.x, p.y, p.width, p.height));
+  platforms.forEach(p=>ctx.fillRect(p.x,p.y,p.width,p.height));
 
-  // Draw temp platforms
   ctx.fillStyle = '#654321';
-  tempPlatforms.forEach(p => ctx.fillRect(p.x, p.y, p.width, p.height));
+  tempPlatforms.forEach(p=>ctx.fillRect(p.x,p.y,p.width,p.height));
 
-  // Draw player
+  // Player
   ctx.fillStyle = player.color;
-  ctx.fillRect(player.x, player.y, player.width, player.height);
+  ctx.fillRect(player.x,player.y,player.width,player.height);
 
-  // Draw ground spikes
+  // Spikes
   ctx.fillStyle = 'brown';
-  groundSpikes.forEach(s => ctx.fillRect(s.x, s.y, s.width, s.height));
+  groundSpikes.forEach(s=>ctx.fillRect(s.x,s.y,s.width,s.height));
 
-  // Draw dummy
-  ctx.fillStyle = dummy.color;
-  ctx.fillRect(dummy.x, dummy.y, dummy.width, dummy.height);
-  ctx.fillStyle = 'red';
-  ctx.fillRect(dummy.x, dummy.y - 10, dummy.width * (dummy.health / 100), 5);
+  // Fireballs
+  ctx.fillStyle = '#ff5500';
+  fireballs.forEach(f=>ctx.fillRect(f.x,f.y,f.width,f.height));
+
+  // Dummy
+  if(dummy.alive){
+    ctx.fillStyle=dummy.color;
+    ctx.fillRect(dummy.x,dummy.y,dummy.width,dummy.height);
+    ctx.fillStyle='red';
+    ctx.fillRect(dummy.x,dummy.y-10,dummy.width*(dummy.health/100),5);
+  }
 }
 </script>
 </body>
