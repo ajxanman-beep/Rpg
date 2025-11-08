@@ -1,5 +1,4 @@
 <!DOCTYPE html>
-(DEMO)
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -130,7 +129,6 @@ function useAbility() {
       fireballs.push({x: player.x + player.width, y: player.y + player.height/2 - 5, width: 15, height: 10, speed: 10});
       break;
     case 'Water':
-      // Spawn a wave in front of the player
       waterWaves.push({
         x: player.x + player.width,
         y: player.y + player.height - 30,
@@ -149,6 +147,7 @@ function useAbility() {
   }
 }
 
+// Earth spike ability with corrupted energy visual
 function useEarthSpike() {
   if (player.element !== 'Earth') return;
   let spikeY = player.onGround ? player.y + player.height : player.y + player.height + 5;
@@ -217,7 +216,6 @@ function update() {
     s.timer--;
     if(s.timer<=0) groundSpikes.splice(i,1);
 
-    // Collision with dummy
     if(dummy.alive &&
       s.x < dummy.x + dummy.width &&
       s.x + s.width > dummy.x &&
@@ -229,38 +227,25 @@ function update() {
     }
   });
 
-  // Update fireballs
+  // Fireballs
   fireballs.forEach((f,i)=>{
     f.x += f.speed;
     if(f.x > canvas.width) fireballs.splice(i,1);
   });
 
-  // Update water waves
+  // Water waves
   waterWaves.forEach((w,i)=>{
     w.x += w.speed;
-
-    // Pushback player if hit
-    if (
-      player.x < w.x + w.width &&
-      player.x + player.width > w.x &&
-      player.y < w.y + w.height &&
-      player.y + player.height > w.y
-    ) {
-      player.x -= 10; // push back
-      player.dy = -5; // slight knockup
+    if(player.x < w.x + w.width && player.x + player.width > w.x &&
+       player.y < w.y + w.height && player.y + player.height > w.y) {
+      player.x -= 10; player.dy = -5;
     }
-
-    // Damage dummy
-    if(dummy.alive &&
-      w.x < dummy.x + dummy.width &&
-      w.x + w.width > dummy.x &&
-      w.y < dummy.y + dummy.height &&
-      w.y + w.height > dummy.y) {
-        dummy.health -= w.damage;
-        waterWaves.splice(i,1);
-        if(dummy.health <= 0) dummy.alive=false;
+    if(dummy.alive && w.x < dummy.x + dummy.width && w.x + w.width > dummy.x &&
+       w.y < dummy.y + dummy.height && w.y + w.height > dummy.y) {
+      dummy.health -= w.damage;
+      waterWaves.splice(i,1);
+      if(dummy.health <= 0) dummy.alive=false;
     }
-
     if(w.x > canvas.width) waterWaves.splice(i,1);
   });
 
@@ -282,9 +267,28 @@ function draw(){
   ctx.fillStyle = player.color;
   ctx.fillRect(player.x,player.y,player.width,player.height);
 
-  // Spikes
-  ctx.fillStyle = 'brown';
-  groundSpikes.forEach(s=>ctx.fillRect(s.x,s.y,s.width,s.height));
+  // Earth spikes (corrupted energy)
+  groundSpikes.forEach(s=>{
+    let pulse = Math.sin(Date.now() * 0.02 + s.x) * 5;
+    let spikeHeight = s.height + pulse;
+
+    ctx.beginPath();
+    ctx.moveTo(s.x, s.y + spikeHeight);
+    ctx.lineTo(s.x + s.width/2, s.y);
+    ctx.lineTo(s.x + s.width, s.y + spikeHeight);
+    ctx.closePath();
+
+    let grad = ctx.createLinearGradient(s.x, s.y, s.x, s.y + spikeHeight);
+    grad.addColorStop(0, '#5500ff');
+    grad.addColorStop(0.5, '#aa00ff');
+    grad.addColorStop(1, '#000000');
+
+    ctx.fillStyle = grad;
+    ctx.shadowColor = '#aa00ff';
+    ctx.shadowBlur = 10;
+    ctx.fill();
+    ctx.shadowBlur = 0;
+  });
 
   // Fireballs
   ctx.fillStyle = '#ff5500';
