@@ -7,30 +7,69 @@
 <style>
   body {
     margin: 0;
+    overflow: hidden; /* prevent scrolling */
     background: #121212;
+    font-family: Arial, sans-serif;
+    color: white;
     display: flex;
     justify-content: center;
     align-items: center;
+    flex-direction: column;
     height: 100vh;
   }
   canvas {
     background: #87ceeb; /* sky */
     display: block;
-    border: 2px solid #000;
   }
+  #element-selection {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    text-align: center;
+  }
+  #element-selection button {
+    margin: 10px;
+    padding: 15px 25px;
+    font-size: 18px;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+  }
+  .fire { background-color: #ff4500; color: #fff; }
+  .water { background-color: #1e90ff; color: #fff; }
+  .earth { background-color: #8b4513; color: #fff; }
+  .air { background-color: #dcdcdc; color: #000; }
 </style>
 </head>
 <body>
-<canvas id="gameCanvas" width="2000" height="1000"></canvas>
+
+<div id="element-selection">
+  <h1>Choose Your Element</h1>
+  <button class="fire" onclick="chooseElement('Fire')">Fire</button>
+  <button class="water" onclick="chooseElement('Water')">Water</button>
+  <button class="earth" onclick="chooseElement('Earth')">Earth</button>
+  <button class="air" onclick="chooseElement('Air')">Air</button>
+</div>
+
+<canvas id="gameCanvas"></canvas>
+
 <script>
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
 
-const keys = {};
+// Make canvas full screen
+function resizeCanvas() {
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+}
+window.addEventListener('resize', resizeCanvas);
+resizeCanvas();
+
+let keys = {};
 document.addEventListener('keydown', e => keys[e.code] = true);
 document.addEventListener('keyup', e => keys[e.code] = false);
 
-// Map and physics
 const gravity = 0.5;
 const friction = 0.8;
 
@@ -38,8 +77,8 @@ const friction = 0.8;
 const player = {
   x: 50,
   y: 300,
-  width: 40,
-  height: 40,
+  width: 50,
+  height: 50,
   color: 'red',
   dx: 0,
   dy: 0,
@@ -50,12 +89,31 @@ const player = {
 
 // Platforms
 const platforms = [
-  {x: 0, y: 360, width: 800, height: 40}, // ground
-  {x: 150, y: 300, width: 100, height: 20},
-  {x: 300, y: 250, width: 100, height: 20},
-  {x: 500, y: 200, width: 150, height: 20},
+  {x: 0, y: 0, width: 0, height: 0} // placeholder, will adjust to screen
 ];
 
+// Update platforms based on screen size
+function createPlatforms() {
+  platforms.length = 0;
+  platforms.push({x: 0, y: canvas.height - 50, width: canvas.width, height: 50}); // ground
+  platforms.push({x: 200, y: canvas.height - 150, width: 200, height: 20});
+  platforms.push({x: 500, y: canvas.height - 250, width: 150, height: 20});
+  platforms.push({x: 800, y: canvas.height - 350, width: 200, height: 20});
+}
+createPlatforms();
+window.addEventListener('resize', createPlatforms);
+
+// Element choosing
+function chooseElement(element) {
+  const colors = { Fire: '#ff4500', Water: '#1e90ff', Earth: '#8b4513', Air: '#dcdcdc' };
+  player.color = colors[element] || 'red';
+  document.getElementById('element-selection').style.display = 'none';
+  player.x = 50;
+  player.y = canvas.height - player.height - 50;
+  update(); // start game loop
+}
+
+// Game loop
 function update() {
   // Horizontal movement
   if (keys['ArrowLeft'] || keys['KeyA']) player.dx = -player.speed;
@@ -84,12 +142,11 @@ function update() {
       player.y < p.y + p.height &&
       player.y + player.height > p.y
     ) {
-      // Collision detected
       if (player.dy > 0) { // falling
         player.y = p.y - player.height;
         player.dy = 0;
         player.onGround = true;
-      } else if (player.dy < 0) { // jumping up into a platform
+      } else if (player.dy < 0) { // jumping
         player.y = p.y + p.height;
         player.dy = 0;
       }
@@ -109,6 +166,7 @@ function update() {
   requestAnimationFrame(update);
 }
 
+// Drawing
 function draw() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
@@ -120,9 +178,6 @@ function draw() {
   ctx.fillStyle = player.color;
   ctx.fillRect(player.x, player.y, player.width, player.height);
 }
-
-// Start game loop
-update();
 </script>
 </body>
 </html>
